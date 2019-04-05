@@ -1,0 +1,74 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cicd
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: drone
+  namespace: cicd
+  labels:
+    app: drone
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    name: http
+    nodePort: 30001
+  # - port: 443
+  #   name: https
+  #   nodePort: 30443
+  selector:
+    app: drone
+---
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: drone-deployment
+  namespace: cicd
+spec:
+  selector:
+    matchLabels:
+      app: drone
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: drone
+    spec:
+      containers:
+      - name: drone
+        image: drone/drone:1.0.0
+        env:
+        - name: DRONE_KUBERNETES_ENABLED
+          value: "true"
+        - name: DRONE_KUBERNETES_NAMESPACE
+          value: cicd
+        - name: DRONE_GITEA_SERVER
+          value: http://gitea.cicd.svc.cluster.local:3000
+        - name: DRONE_RPC_SECRET
+          value: dabcfb6105570577319ccf111aae641e
+        - name: DRONE_SERVER_HOST
+          value: drone.cicd.svc.cluster.local
+        - name: DRONE_SERVER_PROTO
+          value: http
+        ports:
+        - containerPort: 80
+        #- containerPort: 443
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: drone-rbac
+subjects:
+  - kind: ServiceAccount
+    # Reference to upper's `metadata.name`
+    name: default
+    # Reference to upper's `metadata.namespace`
+    namespace: cicd
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io

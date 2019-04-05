@@ -1,0 +1,54 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cicd
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea
+  namespace: cicd
+  labels:
+    app: gitea
+spec:
+  type: NodePort
+  ports:
+  - port: 3000
+    name: http
+    nodePort: 30000
+  - port: 22
+    name: ssh
+    nodePort: 30022
+  selector:
+    app: gitea
+---
+apiVersion: apps/v1beta2 # for versions before 1.8.0 use apps/v1beta1
+kind: Deployment
+metadata:
+  namespace: cicd
+  name: gitea-deployment
+spec:
+  selector:
+    matchLabels:
+      app: gitea
+  replicas: 1 # tells deployment to run 2 pods matching the template
+  template: # create pods using pod definition in this template
+    metadata:
+      labels:
+        app: gitea
+    spec:
+      containers:
+      - name: gitea
+        image: gitea/gitea:latest
+        ports:
+        - containerPort: 3000
+        - containerPort: 22
+        volumeMounts:
+        - mountPath: /data
+          name: git-data
+      volumes:
+      - name: git-data
+        hostPath:
+          path: /mnt/kube-data/gitea
+          type: Directory
